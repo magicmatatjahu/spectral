@@ -34,13 +34,13 @@
   },
   "dependencies": {
     "@rollup/plugin-commonjs": "^20.0.0",
-    "@stoplight/json": "3.17.0",
+    "@stoplight/json": "3.17.1",
     "@stoplight/path": "1.3.2",
-    "@stoplight/spectral-core": "^1.5.1",
+    "@stoplight/spectral-core": "^1.6.1",
     "@stoplight/spectral-parsers": "^1.0.1",
     "@stoplight/spectral-ref-resolver": "1.0.1",
     "@stoplight/spectral-ruleset-bundler": "^1.0.0",
-    "@stoplight/spectral-ruleset-migrator": "^1.5.0",
+    "@stoplight/spectral-ruleset-migrator": "^1.5.2",
     "@stoplight/spectral-rulesets": ">=1",
     "@stoplight/spectral-runtime": "^1.1.0",
     "@stoplight/types": "12.3.0",
@@ -50,7 +50,8 @@
     "fast-glob": "3.2.7",
     "lodash": "~4.17.21",
     "pony-cause": "^1.0.0",
-    "proxy-agent": "5.0.0",
+    "proxy-agent": "4.0.1",
+    "stacktracey": "^2.1.7",
     "strip-ansi": "6.0",
     "text-table": "0.2",
     "tslib": "^2.3.0",
@@ -73,7 +74,9 @@
     ],
     "assets": [
       "./dist/**/*.json",
-      "./dist/**/*.html"
+      "./dist/**/*.html",
+      "../*/dist/**/*.js.map",
+      "../*/src/**/*.ts"
     ]
   }
 }

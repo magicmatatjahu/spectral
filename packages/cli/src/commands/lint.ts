@@ -1,13 +1,17 @@
 import { Dictionary } from '@stoplight/types';
 import { isPlainObject } from '@stoplight/json';
-import { difference, noop, pick } from 'lodash';
+import {isError, difference, noop, pick } from 'lodash';
 import { ReadStream } from 'tty';
 import type { CommandModule } from 'yargs';
+import * as StackTracey from 'stacktracey';
+
 import { getDiagnosticSeverity, IRuleResult } from '@stoplight/spectral-core';
 
 import { lint } from '../services/linter';
 import { formatOutput, writeOutput } from '../services/output';
 import { FailSeverity, ILintConfig, OutputFormat } from '../services/config';
+import * as chalk from 'chalk';
+import { ErrorWithCause } from 'pony-cause';
 
 const formatOptions = Object.values(OutputFormat);
 
@@ -195,6 +199,7 @@ const lintCommand: CommandModule = {
         if (results.length > 0) {
           process.exitCode = severeEnoughToFail(results, failSeverity) ? 1 : 0;
         } else if (config.quiet !== true) {
+          // eslint-disable-next-line no-console
           console.log(`No results with a severity of '${failSeverity}' or higher found!`);
         }
 
@@ -205,12 +210,43 @@ const lintCommand: CommandModule = {
           }),
         ).then(noop);
       })
-      .catch(fail);
+      .catch(ex => fail(ex, config.verbose === true));
   },
 };
 
-const fail = ({ message }: Error): void => {
-  console.error(message);
+const fail = (error: Error | ErrorWithCause<unknown> | AggregateError, verbose: boolean): void => {
+  const errors: unknown[] = 'errors' in error ? error.errors : [error];
+
+  // eslint-disable-next-line no-console
+  console.error(
+    chalk.red(
+      `Error running Spectral! You can try running Spectral with --verbose flag to learn more about the errors`,
+    ),
+  );
+
+  for (const [i, error] of errors.entries()) {
+    const actualError: unknown = isError(error) && 'cause' in error ? (error as ErrorWithCause<unknown>).cause : error;
+
+    // eslint-disable-next-line no-console
+    console.error(
+      `Error #${i + 1}: `,
+      chalk.red(
+        verbose && isError(actualError)
+          ? new StackTracey(actualError)
+              .slice(0, 5)
+              .withSources()
+              .map(err => {
+                err.fileShort = err.file.replace(/^\/snapshot\//, '/');
+                return err;
+              })
+              .asTable()
+          : isError(error)
+          ? error.message
+          : String(error),
+      ),
+    );
+  }
+
   process.exitCode = 2;
 };
 

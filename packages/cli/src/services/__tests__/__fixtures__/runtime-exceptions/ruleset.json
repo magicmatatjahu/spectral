@@ -1,0 +1,14 @@
+{
+  "functions": [
+    "bar"
+  ],
+  "functionsDir": ".",
+  "rules": {
+    "bar": {
+      "given": "$..bar",
+      "then": {
+        "function": "bar"
+      }
+    }
+  }
+}
