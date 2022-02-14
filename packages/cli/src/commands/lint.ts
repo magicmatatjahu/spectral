@@ -1,17 +1,16 @@
 import { Dictionary } from '@stoplight/types';
 import { isPlainObject } from '@stoplight/json';
-import {isError, difference, noop, pick } from 'lodash';
+import { getDiagnosticSeverity, IRuleResult } from '@stoplight/spectral-core';
+import { isError, difference, noop, pick } from 'lodash';
 import { ReadStream } from 'tty';
 import type { CommandModule } from 'yargs';
-import * as StackTracey from 'stacktracey';
-
-import { getDiagnosticSeverity, IRuleResult } from '@stoplight/spectral-core';
 
 import { lint } from '../services/linter';
 import { formatOutput, writeOutput } from '../services/output';
 import { FailSeverity, ILintConfig, OutputFormat } from '../services/config';
-import * as chalk from 'chalk';
+import chalk from 'chalk';
 import { ErrorWithCause } from 'pony-cause';
+import StackTracey from 'stacktracey';
 
 const formatOptions = Object.values(OutputFormat);
 
@@ -217,38 +216,47 @@ const lintCommand: CommandModule = {
 const fail = (error: Error | ErrorWithCause<unknown> | AggregateError, verbose: boolean): void => {
   const errors: unknown[] = 'errors' in error ? error.errors : [error];
 
-  // eslint-disable-next-line no-console
-  console.error(
-    chalk.red(
-      `Error running Spectral! You can try running Spectral with --verbose flag to learn more about the errors`,
-    ),
-  );
+  process.stderr.write(chalk.red('Error running Spectral!\n'));
+
+  if (!verbose) {
+    process.stderr.write(chalk.red('Use --verbose flag to print the error stack.\n'));
+  }
 
   for (const [i, error] of errors.entries()) {
     const actualError: unknown = isError(error) && 'cause' in error ? (error as ErrorWithCause<unknown>).cause : error;
+    const message = isError(actualError) ? actualError.message : String(actualError);
 
-    // eslint-disable-next-line no-console
-    console.error(
-      `Error #${i + 1}: `,
-      chalk.red(
-        verbose && isError(actualError)
-          ? new StackTracey(actualError)
-              .slice(0, 5)
-              .withSources()
-              .map(err => {
-                err.fileShort = err.file.replace(/^\/snapshot\//, '/');
-                return err;
-              })
-              .asTable()
-          : isError(error)
-          ? error.message
-          : String(error),
-      ),
-    );
+    const info = `Error #${i + 1}: `;
+
+    process.stderr.write(`${info}${chalk.red(message)}\n`);
+
+    if (verbose && isError(actualError)) {
+      process.stderr.write(`${chalk.red(printErrorStacks(actualError, info.length))}\n`);
+    }
   }
 
   process.exitCode = 2;
 };
+
+function getWidth(ratio: number): number {
+  return Math.min(20, Math.floor(ratio * process.stderr.columns));
+}
+
+function printErrorStacks(error: Error, padding: number): string {
+  return new StackTracey(error)
+    .slice(0, 5)
+    .withSources()
+    .asTable({
+      maxColumnWidths: {
+        callee: getWidth(0.2),
+        file: getWidth(0.4),
+        sourceLine: getWidth(0.4),
+      },
+    })
+    .split('\n')
+    .map(error => `${' '.repeat(padding)}${error}`)
+    .join('\n');
+}
 
 const filterResultsBySeverity = (results: IRuleResult[], failSeverity: FailSeverity): IRuleResult[] => {
   const diagnosticSeverity = getDiagnosticSeverity(failSeverity);
